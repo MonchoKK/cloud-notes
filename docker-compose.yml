@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cloudnotes-db
+    restart: always
+    environment:
+      POSTGRES_DB: cloudnotes
+      POSTGRES_USER: cloudnotes
+      POSTGRES_PASSWORD: cloudnotes_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cloudnotes -d cloudnotes"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
