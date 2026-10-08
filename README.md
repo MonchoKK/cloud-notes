@@ -23,16 +23,17 @@ The primary goal of **CloudNotes** is to demonstrate hands-on mastery of full-li
   - [x] Functional requirements & API specification
   - [x] System & cloud networking architecture design ([docs/architecture.md](docs/architecture.md))
   - [x] Repository initialization & project structure
-- [ ] **Phase 2 — Local Implementation**
-  - [ ] Spring Boot 3 + Java 21 REST API
-  - [ ] Spring Data JPA entity model & repository
-  - [ ] Database configuration (Local PostgreSQL + Docker Compose + H2 fallback)
-  - [ ] Spring Boot Actuator health checks
-  - [ ] Modern, responsive web frontend (Vanilla HTML/CSS/JS)
-  - [ ] Unit & integration tests
-- [ ] **Phase 3 — Containerization**
-  - [ ] Multi-stage Dockerfile
-  - [ ] Local Docker Compose orchestration
+- [x] **Phase 2 — Local Implementation**
+  - [x] Spring Boot 3 + Java 21 REST API
+  - [x] Spring Data JPA entity model & repository
+  - [x] Database configuration (Local PostgreSQL + Docker Compose + H2 fallback)
+  - [x] Spring Boot Actuator health checks
+  - [x] Modern, responsive web frontend (Vanilla HTML/CSS/JS)
+  - [x] Unit & integration tests
+- [x] **Phase 3 — Containerization**
+  - [x] Multi-stage Dockerfile ([Dockerfile](Dockerfile))
+  - [x] Local Docker Compose orchestration ([docker-compose.yml](docker-compose.yml))
+  - [x] Local production-like environment ([docker-compose.prod.yml](docker-compose.prod.yml) & [docs/containerization.md](docs/containerization.md))
 - [ ] **Phase 4 — CI/CD Pipeline**
   - [ ] GitHub Actions workflow for test & build
   - [ ] Docker image publishing
@@ -63,15 +64,45 @@ The primary goal of **CloudNotes** is to demonstrate hands-on mastery of full-li
 ### Prerequisites
 - **Java 21** or later
 - **Maven 3.9+** (or use `./mvnw`)
-- **Docker & Docker Compose** (for local PostgreSQL)
+- **Docker & Docker Compose**
 
-### Running Locally
+### Option A: Full Containerized Stack (Recommended)
+
+Run both the Spring Boot app and PostgreSQL in Docker containers with automatic database initialization:
 
 ```bash
-# 1. Start the PostgreSQL database
+# Start local development stack
+docker compose up -d --build
+
+# View application logs
+docker compose logs -f app
+
+# Stop services
+docker compose down
+```
+
+### Option B: Local Production-Like Environment
+
+Run with production profile, resource limits (1 CPU, 512MB RAM), HikariCP pool, and strict database subnet isolation (zero host port publishing on PostgreSQL):
+
+```bash
+# Start production-like stack
+docker compose -f docker-compose.prod.yml up -d --build
+
+# View status and resource allocation
+docker compose -f docker-compose.prod.yml ps
+
+# Stop and clean up
+docker compose -f docker-compose.prod.yml down -v
+```
+
+### Option C: Native Java Execution + Dockerized Database
+
+```bash
+# 1. Start the PostgreSQL database only
 docker compose up -d postgres
 
-# 2. Run the Spring Boot application
+# 2. Run the Spring Boot application locally
 ./mvnw spring-boot:run
 ```
 
@@ -84,4 +115,6 @@ Once running:
 
 ## 📖 Architecture & Design
 
-See [docs/architecture.md](docs/architecture.md) for full architecture diagrams, security boundary details, and the API specification.
+- **System Architecture & Cloud Design:** [docs/architecture.md](docs/architecture.md)
+- **Containerization & Local Prod Architecture:** [docs/containerization.md](docs/containerization.md)
+
