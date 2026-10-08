@@ -1,21 +1,63 @@
+# ==============================================================================
+# CloudNotes - Local Development Docker Compose Orchestration
+# Usage:
+#   docker compose up -d --build
+#   docker compose logs -f app
+#   docker compose down
+# ==============================================================================
+
 services:
+  # Spring Boot REST API & Web UI Service
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cloudnotes-app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-cloudnotes}
+      DB_USER: ${DB_USER:-cloudnotes}
+      DB_PASSWORD: ${DB_PASSWORD:-cloudnotes_secret}
+      JAVA_OPTS: ${JAVA_OPTS:--XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cloudnotes-network
+
+  # PostgreSQL Relational Database Service
   postgres:
     image: postgres:16-alpine
     container_name: cloudnotes-db
     restart: always
     environment:
-      POSTGRES_DB: cloudnotes
-      POSTGRES_USER: cloudnotes
-      POSTGRES_PASSWORD: cloudnotes_secret
+      POSTGRES_DB: ${DB_NAME:-cloudnotes}
+      POSTGRES_USER: ${DB_USER:-cloudnotes}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-cloudnotes_secret}
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cloudnotes -d cloudnotes"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-cloudnotes} -d ${DB_NAME:-cloudnotes}"]
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 5s
+    networks:
+      - cloudnotes-network
+
+networks:
+  cloudnotes-network:
+    name: cloudnotes-network
+    driver: bridge
 
 volumes:
   postgres_data:
+    name: cloudnotes_postgres_data
