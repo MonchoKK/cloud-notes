@@ -1,0 +1,96 @@
+# ==============================================================================
+# CloudNotes - Local Production-Like Docker Compose Orchestration
+# ==============================================================================
+# This setup faithfully reproduces AWS cloud infrastructure architecture:
+# - Application container runs in an application tier bridge network ('public-net')
+# - PostgreSQL runs in an isolated internal bridge network ('private-db-net') with NO host port publishing,
+#   directly simulating an Amazon RDS instance placed in a private VPC subnet.
+# - Hardware resource limits (CPU and Memory) simulate AWS EC2 t3.micro / ECS Fargate task constraints.
+# - Spring Boot runs with 'prod' profile (HikariCP pool, optimized logging, Actuator probes).
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml ps
+#   docker compose -f docker-compose.prod.yml logs -f app
+#   docker compose -f docker-compose.prod.yml down
+# ==============================================================================
+
+services:
+  # Application Service (Simulates EC2 / ECS Compute in Public/App Subnet)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cloudnotes-prod-app
+    restart: always
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_HOST: postgres-db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-cloudnotes}
+      DB_USER: ${DB_USER:-cloudnotes}
+      DB_PASSWORD: ${DB_PASSWORD:-cloudnotes_secret}
+      JAVA_OPTS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    networks:
+      - public-net
+      - private-db-net
+
+  # PostgreSQL Service (Simulates Amazon RDS inside Isolated Private VPC Subnet)
+  postgres-db:
+    image: postgres:16-alpine
+    container_name: cloudnotes-prod-db
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_NAME:-cloudnotes}
+      POSTGRES_USER: ${DB_USER:-cloudnotes}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-cloudnotes_secret}
+    # SECURITY NOTE: Port 5432 is deliberately omitted from host port publishing.
+    # The database is only accessible to the application via the internal private-db-net.
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+      - ./docker/init-db:/docker-entrypoint-initdb.d:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.10"
+          memory: 128M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-cloudnotes} -d ${DB_NAME:-cloudnotes}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - private-db-net
+
+networks:
+  # Simulates public / internet-facing subnet tier
+  public-net:
+    name: cloudnotes-prod-public-net
+    driver: bridge
+
+  # Simulates private subnet tier (zero external ingress or routing, internal only)
+  private-db-net:
+    name: cloudnotes-prod-private-db-net
+    driver: bridge
+    internal: true
+
+volumes:
+  postgres_prod_data:
+    name: cloudnotes_prod_postgres_data
