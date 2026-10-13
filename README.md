@@ -34,14 +34,15 @@ The primary goal of **CloudNotes** is to demonstrate hands-on mastery of full-li
   - [x] Multi-stage Dockerfile ([Dockerfile](Dockerfile))
   - [x] Local Docker Compose orchestration ([docker-compose.yml](docker-compose.yml))
   - [x] Local production-like environment ([docker-compose.prod.yml](docker-compose.prod.yml) & [docs/containerization.md](docs/containerization.md))
-- [ ] **Phase 4 — CI/CD Pipeline**
+- [x] **Phase 4 — First Cloud Deployment (AWS)**
+  - [x] AWS account/environment & CLI integration ([docs/aws-deployment-guide.md](docs/aws-deployment-guide.md))
+  - [x] VPC, public/private subnets, internet gateway, and security groups
+  - [x] Amazon RDS PostgreSQL in private subnet (zero public exposure)
+  - [x] EC2 compute with automated Docker bootstrapping ([scripts/user-data.sh](scripts/user-data.sh))
+  - [x] Deployment automation & teardown scripts ([scripts/deploy-aws.ps1](scripts/deploy-aws.ps1), [scripts/destroy-aws.ps1](scripts/destroy-aws.ps1))
+- [ ] **Phase 5 — CI/CD Pipeline**
   - [ ] GitHub Actions workflow for test & build
   - [ ] Docker image publishing
-- [ ] **Phase 5 — Cloud Infrastructure (AWS)**
-  - [ ] VPC, subnets, route tables, internet gateway
-  - [ ] RDS PostgreSQL instance in private subnet
-  - [ ] Compute instance (EC2/ECS) in public subnet with security groups
-  - [ ] IAM least-privilege roles
 - [ ] **Phase 6 — Monitoring & Observability**
   - [ ] CloudWatch logs & metrics integration
   - [ ] Operational runbook & post-deployment verification
@@ -54,7 +55,7 @@ The primary goal of **CloudNotes** is to demonstrate hands-on mastery of full-li
 - **Database:** PostgreSQL 16
 - **Frontend:** HTML5, CSS3, JavaScript (Fetch API)
 - **Containerization:** Docker & Docker Compose
-- **Cloud (AWS):** VPC, EC2 / ECS, RDS PostgreSQL, IAM, CloudWatch
+- **Cloud (AWS):** VPC, EC2, RDS PostgreSQL, IAM, Security Groups
 - **CI/CD:** GitHub Actions
 
 ---
@@ -113,8 +114,36 @@ Once running:
 
 ---
 
+## ☁️ AWS Cloud Deployment
+
+Deploy the complete isolated cloud stack (VPC, Private Subnets, RDS PostgreSQL, and EC2 with Docker) onto AWS:
+
+### 1. Configure Credentials
+```powershell
+aws configure
+```
+
+### 2. Run Automated Deployment
+```powershell
+# Windows PowerShell
+.\scripts\deploy-aws.ps1 -Region "eu-west-1"
+
+# Linux / macOS
+./scripts/deploy-aws.sh "eu-west-1"
+```
+
+### 3. Teardown Resources
+```powershell
+.\scripts\destroy-aws.ps1
+```
+
+See [docs/aws-deployment-guide.md](docs/aws-deployment-guide.md) for full step-by-step console instructions, security group matrices, and architecture details.
+
+---
+
 ## 📖 Architecture & Design
 
 - **System Architecture & Cloud Design:** [docs/architecture.md](docs/architecture.md)
 - **Containerization & Local Prod Architecture:** [docs/containerization.md](docs/containerization.md)
+- **AWS Cloud Deployment Guide:** [docs/aws-deployment-guide.md](docs/aws-deployment-guide.md)
 
