@@ -1,0 +1,221 @@
+name: CloudNotes CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ "v*.*.*" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ============================================================================
+  # Stage 1: Build, Unit & Integration Tests, Artifact Archival
+  # ============================================================================
+  test:
+    name: Build, Lint & Automated Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21 LTS (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Make Maven Wrapper Executable
+        run: chmod +x mvnw
+
+      - name: Verify Build, Execute Tests & Package JAR
+        run: ./mvnw clean verify -B
+
+      - name: Archive Test Results (Surefire Reports)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-test-reports
+          path: target/surefire-reports/
+          retention-days: 14
+
+      - name: Archive Packaged Spring Boot JAR
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudnotes-application-jar
+          path: target/cloud-notes-*.jar
+          retention-days: 7
+
+  # ============================================================================
+  # Stage 2: Container Build, Real PostgreSQL Smoke Test & Registry Publishing
+  # ============================================================================
+  docker:
+    name: Docker Build, Verification & Registry Publish
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: cloudnotes
+          POSTGRES_USER: cloudnotes
+          POSTGRES_PASSWORD: cloudnotes_secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU (Multi-platform Emulation)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract Docker Metadata (Tags & Labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          flavor: |
+            latest=auto
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=short,prefix=sha-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Image for Local Runner & Cache (cloudnotes:test)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          load: true
+          tags: cloudnotes:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Execute Live Container Smoke & Health Probe Test
+        run: |
+          echo "=========================================================="
+          echo " Starting CloudNotes Container Smoke Test on Ubuntu Runner"
+          echo "=========================================================="
+
+          # Launch container using host network to reach runner's PostgreSQL service
+          docker run -d \
+            --name cloudnotes-smoke-app \
+            --network host \
+            -e SPRING_PROFILES_ACTIVE=local \
+            -e DB_HOST=127.0.0.1 \
+            -e DB_PORT=5432 \
+            -e DB_NAME=cloudnotes \
+            -e DB_USER=cloudnotes \
+            -e DB_PASSWORD=cloudnotes_secret \
+            cloudnotes:test
+
+          echo "Waiting for Spring Boot application and HikariCP pool to report UP..."
+          
+          # Poll Actuator health endpoint
+          READY=0
+          for i in {1..30}; do
+            HEALTH_JSON=$(curl -s http://127.0.0.1:8080/actuator/health || true)
+            echo "Probe #$i -> $HEALTH_JSON"
+            
+            if echo "$HEALTH_JSON" | grep -q '"status":"UP"'; then
+              echo ">>> Actuator health status is UP!"
+              READY=1
+              break
+            fi
+            sleep 2
+          done
+
+          if [ $READY -ne 1 ]; then
+            echo ">>> Container failed healthcheck within 60s timeout! Inspecting logs:"
+            docker logs cloudnotes-smoke-app
+            docker stop cloudnotes-smoke-app && docker rm cloudnotes-smoke-app
+            exit 1
+          fi
+
+          echo "=========================================================="
+          echo " Testing REST API Create & Retrieve Note Invariant"
+          echo "=========================================================="
+
+          # Verify REST API Note creation against PostgreSQL
+          POST_RESP=$(curl -s -w "\n%{http_code}" -X POST http://127.0.0.1:8080/api/notes \
+            -H "Content-Type: application/json" \
+            -d '{"title":"CI Smoke Test Note","content":"Automated GitHub Actions verification payload."}')
+          
+          HTTP_STATUS=$(echo "$POST_RESP" | tail -n1)
+          RESP_BODY=$(echo "$POST_RESP" | sed '$d')
+          
+          echo "POST /api/notes Status: $HTTP_STATUS"
+          echo "POST /api/notes Body:   $RESP_BODY"
+
+          if [ "$HTTP_STATUS" -ne 201 ]; then
+            echo ">>> Failed to create note during smoke test! Status code: $HTTP_STATUS"
+            docker logs cloudnotes-smoke-app
+            docker stop cloudnotes-smoke-app && docker rm cloudnotes-smoke-app
+            exit 1
+          fi
+
+          # Verify note listing contains created note
+          GET_RESP=$(curl -s http://127.0.0.1:8080/api/notes)
+          echo "GET /api/notes Body: $GET_RESP"
+
+          if ! echo "$GET_RESP" | grep -q "CI Smoke Test Note"; then
+            echo ">>> Note not found in database listing!"
+            docker logs cloudnotes-smoke-app
+            docker stop cloudnotes-smoke-app && docker rm cloudnotes-smoke-app
+            exit 1
+          fi
+
+          echo "=========================================================="
+          echo " Container Smoke Test Passed Cleanly! Stopping Container."
+          echo "=========================================================="
+          docker stop cloudnotes-smoke-app
+          docker rm cloudnotes-smoke-app
+
+      - name: Publish Docker Image to GitHub Container Registry (GHCR)
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          platforms: linux/amd64

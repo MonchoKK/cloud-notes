@@ -1,5 +1,11 @@
 # ☁️ CloudNotes
 
+[![CI/CD Pipeline](https://github.com/MonchoKK/cloud-notes/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/MonchoKK/cloud-notes/actions/workflows/ci-cd.yml)
+[![Tests](https://img.shields.io/badge/Tests-17%2F17%20Passing-brightgreen.svg)]()
+[![Java Version](https://img.shields.io/badge/Java-21%20LTS-orange.svg)](https://openjdk.org/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.4-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Docker Image](https://img.shields.io/badge/GHCR-ghcr.io%2Fmonchokk%2Fcloud--notes-blue.svg)](https://github.com/MonchoKK/cloud-notes/pkgs/container/cloud-notes)
+
 > A cloud-hosted notes application engineered to demonstrate cloud deployment, infrastructure networking, managed databases, security, CI/CD, and observability. WTC-88EXSGHH
 
 ---
@@ -40,9 +46,12 @@ The primary goal of **CloudNotes** is to demonstrate hands-on mastery of full-li
   - [x] Amazon RDS PostgreSQL in private subnet (zero public exposure)
   - [x] EC2 compute with automated Docker bootstrapping ([scripts/user-data.sh](scripts/user-data.sh))
   - [x] Deployment automation & teardown scripts ([scripts/deploy-aws.ps1](scripts/deploy-aws.ps1), [scripts/destroy-aws.ps1](scripts/destroy-aws.ps1))
-- [ ] **Phase 5 — CI/CD Pipeline**
-  - [ ] GitHub Actions workflow for test & build
-  - [ ] Docker image publishing
+- [x] **Phase 5 — CI/CD Pipeline**
+  - [x] GitHub Actions workflow for test & build ([.github/workflows/ci-cd.yml](.github/workflows/ci-cd.yml))
+  - [x] Multi-stage Docker image build with GitHub Actions layer caching
+  - [x] Live container smoke testing with Actuator probes & REST persistence invariants
+  - [x] Docker image publishing to GitHub Container Registry (`ghcr.io/monchokk/cloud-notes`)
+  - [x] CI/CD architecture & deployment specification ([docs/ci-cd.md](docs/ci-cd.md))
 - [ ] **Phase 6 — Monitoring & Observability**
   - [ ] CloudWatch logs & metrics integration
   - [ ] Operational runbook & post-deployment verification
@@ -146,4 +155,5 @@ See [docs/aws-deployment-guide.md](docs/aws-deployment-guide.md) for full step-b
 - **System Architecture & Cloud Design:** [docs/architecture.md](docs/architecture.md)
 - **Containerization & Local Prod Architecture:** [docs/containerization.md](docs/containerization.md)
 - **AWS Cloud Deployment Guide:** [docs/aws-deployment-guide.md](docs/aws-deployment-guide.md)
+- **CI/CD Pipeline & Registry Publishing Guide:** [docs/ci-cd.md](docs/ci-cd.md)
 

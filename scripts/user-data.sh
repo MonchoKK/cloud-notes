@@ -48,10 +48,20 @@ DB_PASSWORD=${DB_PASSWORD}
 JAVA_OPTS=-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0
 EOF
 
-echo "=== [CloudNotes] Building and starting CloudNotes container ==="
+echo "=== [CloudNotes] Launching CloudNotes container ==="
 
-# 7. Build and run CloudNotes application container
-docker build -t cloudnotes:latest .
+# 7. Pull prebuilt image from GitHub Container Registry (GHCR) or fallback to local docker build
+IMAGE_TAG="${IMAGE_TAG:-ghcr.io/monchokk/cloud-notes:latest}"
+echo "Attempting to pull published container image: ${IMAGE_TAG}"
+
+if docker pull "${IMAGE_TAG}"; then
+  echo "Successfully pulled ${IMAGE_TAG} from container registry."
+  CONTAINER_IMAGE="${IMAGE_TAG}"
+else
+  echo "Registry pull failed or image not yet published; falling back to local container build..."
+  docker build -t cloudnotes:latest .
+  CONTAINER_IMAGE="cloudnotes:latest"
+fi
 
 # Run container with auto-restart and port forwarding
 docker run -d \
@@ -60,6 +70,6 @@ docker run -d \
   -p 80:8080 \
   -p 8080:8080 \
   --env-file .env \
-  cloudnotes:latest
+  "${CONTAINER_IMAGE}"
 
 echo "=== [CloudNotes] Provisioning completed successfully at $(date) ==="
