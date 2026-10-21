@@ -168,8 +168,53 @@ while (-not $dbEndpoint) {
 Write-Host "✅ RDS PostgreSQL is available at endpoint: $dbEndpoint" -ForegroundColor Green
 $state.DbEndpoint = $dbEndpoint
 
-# 6. Provision EC2 Compute & Deploy CloudNotes
-Write-Host "`n🚀 [5/6] Launching EC2 Instance & Deploying CloudNotes..." -ForegroundColor Yellow
+# 6. Configure IAM Role & Instance Profile for CloudWatch
+Write-Host "`n📊 [5/7] Configuring IAM Role & Instance Profile for CloudWatch..." -ForegroundColor Yellow
+
+$iamRoleName = "cloudnotes-ec2-role"
+$instanceProfileName = "cloudnotes-ec2-instance-profile"
+
+$roleExists = $false
+try {
+    & $awsCmd iam get-role --role-name $iamRoleName --output json 2>$null | Out-Null
+    $roleExists = $true
+} catch {
+    $roleExists = $false
+}
+
+if (-not $roleExists) {
+    $trustPolicy = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"ec2.amazonaws.com"},"Action":"sts:AssumeRole"}]}'
+    & $awsCmd iam create-role --role-name $iamRoleName --assume-role-policy-document $trustPolicy --description "Role for CloudNotes EC2 to push CloudWatch metrics and logs" | Out-Null
+    Write-Host "  • Created IAM Role: $iamRoleName" -ForegroundColor Gray
+} else {
+    Write-Host "  • IAM Role already exists: $iamRoleName" -ForegroundColor Gray
+}
+
+& $awsCmd iam attach-role-policy --role-name $iamRoleName --policy-arn "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy" | Out-Null
+Write-Host "  • Attached policy CloudWatchAgentServerPolicy to $iamRoleName" -ForegroundColor Gray
+$state.IamRoleName = $iamRoleName
+
+$profileExists = $false
+try {
+    & $awsCmd iam get-instance-profile --instance-profile-name $instanceProfileName --output json 2>$null | Out-Null
+    $profileExists = $true
+} catch {
+    $profileExists = $false
+}
+
+if (-not $profileExists) {
+    & $awsCmd iam create-instance-profile --instance-profile-name $instanceProfileName | Out-Null
+    & $awsCmd iam add-role-to-instance-profile --instance-profile-name $instanceProfileName --role-name $iamRoleName | Out-Null
+    Write-Host "  • Created IAM Instance Profile: $instanceProfileName" -ForegroundColor Gray
+    # Allow time for IAM profile propagation
+    Start-Sleep -Seconds 10
+} else {
+    Write-Host "  • IAM Instance Profile already exists: $instanceProfileName" -ForegroundColor Gray
+}
+$state.InstanceProfileName = $instanceProfileName
+
+# 7. Provision EC2 Compute & Deploy CloudNotes
+Write-Host "`n🚀 [6/7] Launching EC2 Instance & Deploying CloudNotes..." -ForegroundColor Yellow
 
 # Find latest Amazon Linux 2023 AMI
 $amiId = (& $awsCmd ec2 describe-images --owners amazon --filters "Name=name,Values=al2023-ami-2023.*-x86_64" "Name=state,Values=available" --query "sort_by(Images, &CreationDate)[-1].ImageId" --region $Region --output text).Trim()
@@ -189,6 +234,7 @@ $ec2Params = @(
     "--instance-type", $InstanceType,
     "--subnet-id", $publicSubnetId,
     "--security-group-ids", $appSgId,
+    "--iam-instance-profile", "Name=$instanceProfileName",
     "--user-data", $userDataBase64,
     "--tag-specifications", "ResourceType=instance,Tags=[{Key=Name,Value=cloudnotes-app-server}]",
     "--region", $Region,
@@ -212,12 +258,15 @@ $state.PublicDns = $publicDns
 # Save state file for teardown
 $state | ConvertTo-Json -Depth 5 | Set-Content $stateFile -Encoding UTF8
 
-# 7. Deployment Complete Summary
-Write-Host "`n🎉 [6/6] CloudNotes Cloud Deployment Complete!" -ForegroundColor Green
+# 8. Deployment Complete Summary
+Write-Host "`n🎉 [7/7] CloudNotes Cloud Deployment Complete!" -ForegroundColor Green
 Write-Host "=============================================" -ForegroundColor Green
 Write-Host "🌐 Application Web UI:     http://$publicIp" -ForegroundColor Cyan
 Write-Host "📱 Application Direct:     http://${publicIp}:8080" -ForegroundColor Cyan
 Write-Host "🩺 Healthcheck Probe:      http://${publicIp}:8080/actuator/health" -ForegroundColor Cyan
+Write-Host "📊 Metrics Endpoint:       http://${publicIp}:8080/actuator/metrics" -ForegroundColor Cyan
+Write-Host "📜 CloudWatch Log Group:   /cloudnotes/application" -ForegroundColor Cyan
+Write-Host "📈 CloudWatch Namespace:   CloudNotes/EC2" -ForegroundColor Cyan
 Write-Host "🗄️  RDS Endpoint (Private): $dbEndpoint:5432" -ForegroundColor Gray
 Write-Host "🔑 Database Master Pass:   $DbPassword" -ForegroundColor Gray
 Write-Host "💾 Deployment State:       $stateFile" -ForegroundColor Gray

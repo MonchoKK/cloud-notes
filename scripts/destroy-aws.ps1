@@ -106,5 +106,21 @@ if ($state.VpcId) {
     Write-Host "✅ VPC deleted." -ForegroundColor Green
 }
 
+# 8. Clean up IAM Role & Instance Profile for CloudWatch
+if ($state.InstanceProfileName) {
+    Write-Host "🗑️  Cleaning up IAM Instance Profile $($state.InstanceProfileName)..." -ForegroundColor Yellow
+    if ($state.IamRoleName) {
+        & $awsCmd iam remove-role-from-instance-profile --instance-profile-name $state.InstanceProfileName --role-name $state.IamRoleName 2>$null | Out-Null
+    }
+    & $awsCmd iam delete-instance-profile --instance-profile-name $state.InstanceProfileName 2>$null | Out-Null
+}
+if ($state.IamRoleName) {
+    Write-Host "🗑️  Cleaning up IAM Role $($state.IamRoleName)..." -ForegroundColor Yellow
+    & $awsCmd iam detach-role-policy --role-name $state.IamRoleName --policy-arn "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy" 2>$null | Out-Null
+    & $awsCmd iam delete-role --role-name $state.IamRoleName 2>$null | Out-Null
+    Write-Host "✅ IAM Role & Instance Profile removed." -ForegroundColor Green
+}
+
 Remove-Item $StatePath -Force -ErrorAction SilentlyContinue
 Write-Host "`n🎉 All CloudNotes AWS resources have been successfully cleaned up!`n" -ForegroundColor Green
+

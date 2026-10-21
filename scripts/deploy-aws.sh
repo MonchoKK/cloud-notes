@@ -92,8 +92,32 @@ aws rds wait db-instance-available --db-instance-identifier "${DB_INSTANCE_ID}" 
 DB_ENDPOINT=$(aws rds describe-db-instances --db-instance-identifier "${DB_INSTANCE_ID}" --region "${REGION}" --query "DBInstances[0].Endpoint.Address" --output text)
 echo -e "\033[1;32m✅ RDS PostgreSQL available at: ${DB_ENDPOINT}\033[0m"
 
-# 6. EC2 Compute
-echo -e "\n\033[1;33m🚀 [5/6] Launching EC2 Instance & Deploying CloudNotes...\033[0m"
+# 6. IAM Role & Instance Profile for CloudWatch
+echo -e "\n\033[1;33m📊 [5/7] Configuring IAM Role & Instance Profile for CloudWatch...\033[0m"
+IAM_ROLE_NAME="cloudnotes-ec2-role"
+INSTANCE_PROFILE_NAME="cloudnotes-ec2-instance-profile"
+
+if ! aws iam get-role --role-name "${IAM_ROLE_NAME}" >/dev/null 2>&1; then
+  TRUST_POLICY='{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"ec2.amazonaws.com"},"Action":"sts:AssumeRole"}]}'
+  aws iam create-role --role-name "${IAM_ROLE_NAME}" --assume-role-policy-document "${TRUST_POLICY}" --description "Role for CloudNotes EC2 to push CloudWatch metrics and logs" >/dev/null
+  echo "  • Created IAM Role: ${IAM_ROLE_NAME}"
+else
+  echo "  • IAM Role already exists: ${IAM_ROLE_NAME}"
+fi
+
+aws iam attach-role-policy --role-name "${IAM_ROLE_NAME}" --policy-arn "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy" >/dev/null
+
+if ! aws iam get-instance-profile --instance-profile-name "${INSTANCE_PROFILE_NAME}" >/dev/null 2>&1; then
+  aws iam create-instance-profile --instance-profile-name "${INSTANCE_PROFILE_NAME}" >/dev/null
+  aws iam add-role-to-instance-profile --instance-profile-name "${INSTANCE_PROFILE_NAME}" --role-name "${IAM_ROLE_NAME}" >/dev/null
+  echo "  • Created IAM Instance Profile: ${INSTANCE_PROFILE_NAME}"
+  sleep 10
+else
+  echo "  • IAM Instance Profile already exists: ${INSTANCE_PROFILE_NAME}"
+fi
+
+# 7. EC2 Compute
+echo -e "\n\033[1;33m🚀 [6/7] Launching EC2 Instance & Deploying CloudNotes...\033[0m"
 AMI_ID=$(aws ec2 describe-images --owners amazon --filters "Name=name,Values=al2023-ami-2023.*-x86_64" "Name=state,Values=available" --query "sort_by(Images, &CreationDate)[-1].ImageId" --region "${REGION}" --output text)
 
 USER_DATA_CONTENT=$(sed \
@@ -107,6 +131,7 @@ INSTANCE_ID=$(aws ec2 run-instances \
   --instance-type "${INSTANCE_TYPE}" \
   --subnet-id "${PUBLIC_SUBNET_ID}" \
   --security-group-ids "${APP_SG_ID}" \
+  --iam-instance-profile "Name=${INSTANCE_PROFILE_NAME}" \
   --user-data "${USER_DATA_BASE64}" \
   --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=cloudnotes-app-server}]" \
   --region "${REGION}" \
@@ -129,16 +154,22 @@ cat <<EOF > "${STATE_FILE}"
   "DbSgId": "${DB_SG_ID}",
   "DbInstanceId": "${DB_INSTANCE_ID}",
   "DbEndpoint": "${DB_ENDPOINT}",
+  "IamRoleName": "${IAM_ROLE_NAME}",
+  "InstanceProfileName": "${INSTANCE_PROFILE_NAME}",
   "InstanceId": "${INSTANCE_ID}",
   "PublicIp": "${PUBLIC_IP}"
 }
 EOF
 
-echo -e "\n\033[1;32m🎉 [6/6] CloudNotes Cloud Deployment Complete!\033[0m"
+echo -e "\n\033[1;32m🎉 [7/7] CloudNotes Cloud Deployment Complete!\033[0m"
 echo -e "============================================="
 echo -e "🌐 Application Web UI:     http://${PUBLIC_IP}"
 echo -e "📱 Application Direct:     http://${PUBLIC_IP}:8080"
 echo -e "🩺 Healthcheck Probe:      http://${PUBLIC_IP}:8080/actuator/health"
+echo -e "📊 Metrics Endpoint:       http://${PUBLIC_IP}:8080/actuator/metrics"
+echo -e "📜 CloudWatch Log Group:   /cloudnotes/application"
+echo -e "📈 CloudWatch Namespace:   CloudNotes/EC2"
 echo -e "🗄️  RDS Endpoint (Private): ${DB_ENDPOINT}:5432"
 echo -e "💾 Deployment State:       ${STATE_FILE}"
 echo -e "\n\033[1;33mNote: Allow ~1-2 minutes for Docker container build and startup on the instance.\033[0m\n"
+

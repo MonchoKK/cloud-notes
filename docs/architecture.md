@@ -123,3 +123,13 @@ All API endpoints produce and consume `application/json`.
    - Configured via environment variables (`SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`).
 3. **Least Privilege IAM**:
    - The compute instance will use an IAM instance role with only the necessary policies (e.g., CloudWatch Agent log shipping).
+
+---
+
+## 6. Observability & Telemetry
+
+Full monitoring, logs, metrics, and incident runbook specifications are detailed in [docs/monitoring-observability.md](monitoring-observability.md):
+- **Health Probes**: Spring Boot Actuator (`/actuator/health`, `/actuator/metrics`).
+- **Telemetry Streaming**: AWS CloudWatch Unified Agent running on EC2 instance under `cloudnotes-ec2-role` IAM role.
+- **Log Groups**: `/cloudnotes/application`, `/cloudnotes/provisioning`, `/cloudnotes/system`.
+- **Custom Metrics**: Memory and disk consumption tracked under CloudWatch namespace `CloudNotes/EC2`.

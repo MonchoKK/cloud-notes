@@ -52,9 +52,13 @@ The primary goal of **CloudNotes** is to demonstrate hands-on mastery of full-li
   - [x] Live container smoke testing with Actuator probes & REST persistence invariants
   - [x] Docker image publishing to GitHub Container Registry (`ghcr.io/monchokk/cloud-notes`)
   - [x] CI/CD architecture & deployment specification ([docs/ci-cd.md](docs/ci-cd.md))
-- [ ] **Phase 6 — Monitoring & Observability**
-  - [ ] CloudWatch logs & metrics integration
-  - [ ] Operational runbook & post-deployment verification
+- [x] **Phase 6 — Monitoring & Observability**
+  - [x] CloudWatch Unified Agent metrics (RAM & Disk) & log streaming ([scripts/user-data.sh](scripts/user-data.sh))
+  - [x] IAM instance profile integration for seamless telemetry ([scripts/deploy-aws.ps1](scripts/deploy-aws.ps1) & [scripts/deploy-aws.sh](scripts/deploy-aws.sh))
+  - [x] Spring Boot Actuator probes & production file logging ([src/main/resources/application-prod.yml](src/main/resources/application-prod.yml))
+  - [x] Operational runbook, CloudWatch queries & post-deployment verification ([docs/monitoring-observability.md](docs/monitoring-observability.md))
+- [ ] **Phase 7 — Infrastructure as Code (IaC)**
+  - [ ] Declarative cloud infrastructure provisioning with Terraform
 
 ---
 
@@ -156,4 +160,6 @@ See [docs/aws-deployment-guide.md](docs/aws-deployment-guide.md) for full step-b
 - **Containerization & Local Prod Architecture:** [docs/containerization.md](docs/containerization.md)
 - **AWS Cloud Deployment Guide:** [docs/aws-deployment-guide.md](docs/aws-deployment-guide.md)
 - **CI/CD Pipeline & Registry Publishing Guide:** [docs/ci-cd.md](docs/ci-cd.md)
+- **Monitoring, Observability & Operational Runbook:** [docs/monitoring-observability.md](docs/monitoring-observability.md)
+
 

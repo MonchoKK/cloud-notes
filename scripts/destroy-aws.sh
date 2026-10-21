@@ -28,6 +28,8 @@ PRIVATE_SUBNET_1_ID=$(grep -o '"PrivateSubnet1Id": "[^"]*' "${STATE_FILE}" | cut
 PRIVATE_SUBNET_2_ID=$(grep -o '"PrivateSubnet2Id": "[^"]*' "${STATE_FILE}" | cut -d'"' -f4 || true)
 IGW_ID=$(grep -o '"IgwId": "[^"]*' "${STATE_FILE}" | cut -d'"' -f4 || true)
 VPC_ID=$(grep -o '"VpcId": "[^"]*' "${STATE_FILE}" | cut -d'"' -f4 || true)
+IAM_ROLE_NAME=$(grep -o '"IamRoleName": "[^"]*' "${STATE_FILE}" | cut -d'"' -f4 || true)
+INSTANCE_PROFILE_NAME=$(grep -o '"InstanceProfileName": "[^"]*' "${STATE_FILE}" | cut -d'"' -f4 || true)
 
 # 1. Terminate EC2
 if [ -n "${INSTANCE_ID}" ]; then
@@ -81,5 +83,20 @@ if [ -n "${VPC_ID}" ]; then
   aws ec2 delete-vpc --vpc-id "${VPC_ID}" --region "${REGION}" >/dev/null || true
 fi
 
+# 8. IAM Role & Instance Profile
+if [ -n "${INSTANCE_PROFILE_NAME}" ]; then
+  echo "🗑️  Cleaning up IAM Instance Profile ${INSTANCE_PROFILE_NAME}..."
+  if [ -n "${IAM_ROLE_NAME}" ]; then
+    aws iam remove-role-from-instance-profile --instance-profile-name "${INSTANCE_PROFILE_NAME}" --role-name "${IAM_ROLE_NAME}" >/dev/null 2>&1 || true
+  fi
+  aws iam delete-instance-profile --instance-profile-name "${INSTANCE_PROFILE_NAME}" >/dev/null 2>&1 || true
+fi
+if [ -n "${IAM_ROLE_NAME}" ]; then
+  echo "🗑️  Cleaning up IAM Role ${IAM_ROLE_NAME}..."
+  aws iam detach-role-policy --role-name "${IAM_ROLE_NAME}" --policy-arn "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy" >/dev/null 2>&1 || true
+  aws iam delete-role --role-name "${IAM_ROLE_NAME}" >/dev/null 2>&1 || true
+fi
+
 rm -f "${STATE_FILE}"
 echo -e "\n\033[1;32m🎉 All CloudNotes AWS resources have been successfully cleaned up!\033[0m\n"
+

@@ -34,7 +34,9 @@ WORKDIR /app
 
 # Create unprivileged system group and user for security compliance (non-root)
 RUN addgroup -g 1001 -S cloudnotes && \
-    adduser -u 1001 -S cloudnotes -G cloudnotes
+    adduser -u 1001 -S cloudnotes -G cloudnotes && \
+    mkdir -p /var/log/cloudnotes && \
+    chown -R cloudnotes:cloudnotes /var/log/cloudnotes
 
 # Set up default containerized JVM flags:
 # - UseContainerSupport: Auto-detect CPU shares and cgroup memory limits
