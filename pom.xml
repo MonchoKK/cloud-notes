@@ -50,12 +50,13 @@
 			<scope>runtime</scope>
 		</dependency>
 
-		<!-- H2 in-memory Database for Fast Unit/Integration Testing -->
+		<!-- H2 in-memory Database for Fast Unit/Integration Testing and Local In-Memory Dev -->
 		<dependency>
 			<groupId>com.h2database</groupId>
 			<artifactId>h2</artifactId>
-			<scope>test</scope>
+			<scope>runtime</scope>
 		</dependency>
+
 
 		<!-- Spring Boot Test Starter -->
 		<dependency>

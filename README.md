@@ -120,9 +120,22 @@ docker compose up -d postgres
 ./mvnw spring-boot:run
 ```
 
+### Option D: Instant In-Memory Execution (Zero Docker Required)
+
+Run the service with an instant in-memory database and pre-seeded notes:
+
+```bash
+# Windows PowerShell
+$env:SPRING_PROFILES_ACTIVE="dev"; .\mvnw.cmd spring-boot:run
+
+# Linux / macOS
+SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run
+```
+
 Once running:
 - **Application Web UI:** [http://localhost:8080](http://localhost:8080)
 - **REST API:** [http://localhost:8080/api/notes](http://localhost:8080/api/notes)
+- **H2 Console:** [http://localhost:8080/h2-console](http://localhost:8080/h2-console) (JDBC URL: `jdbc:h2:mem:cloudnotes_dev`)
 - **Health Probes:** [http://localhost:8080/actuator/health](http://localhost:8080/actuator/health)
 
 ---
