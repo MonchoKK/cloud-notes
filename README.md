@@ -57,8 +57,10 @@ The primary goal of **CloudNotes** is to demonstrate hands-on mastery of full-li
   - [x] IAM instance profile integration for seamless telemetry ([scripts/deploy-aws.ps1](scripts/deploy-aws.ps1) & [scripts/deploy-aws.sh](scripts/deploy-aws.sh))
   - [x] Spring Boot Actuator probes & production file logging ([src/main/resources/application-prod.yml](src/main/resources/application-prod.yml))
   - [x] Operational runbook, CloudWatch queries & post-deployment verification ([docs/monitoring-observability.md](docs/monitoring-observability.md))
-- [ ] **Phase 7 — Infrastructure as Code (IaC)**
-  - [ ] Declarative cloud infrastructure provisioning with Terraform
+- [x] **Phase 7 — Infrastructure as Code (IaC)**
+  - [x] Declarative cloud infrastructure provisioning with Terraform ([terraform/](terraform/))
+  - [x] Custom VPC, multi-AZ private subnets, security groups, EC2 & RDS PostgreSQL
+  - [x] Terraform deployment guide & validation specification ([docs/terraform-deployment-guide.md](docs/terraform-deployment-guide.md))
 
 ---
 
@@ -70,6 +72,7 @@ The primary goal of **CloudNotes** is to demonstrate hands-on mastery of full-li
 - **Containerization:** Docker & Docker Compose
 - **Cloud (AWS):** VPC, EC2, RDS PostgreSQL, IAM, Security Groups
 - **CI/CD:** GitHub Actions
+- **Infrastructure as Code (IaC):** Terraform
 
 ---
 
@@ -167,6 +170,42 @@ See [docs/aws-deployment-guide.md](docs/aws-deployment-guide.md) for full step-b
 
 ---
 
+## 🌍 Infrastructure as Code (Terraform)
+
+Provision the complete reproducible AWS infrastructure using declarative Terraform:
+
+### 1. Validate Configuration Locally
+```bash
+cd terraform
+
+# Format check
+terraform fmt -check -recursive
+
+# Initialize AWS provider without remote backend
+terraform init -backend=false
+
+# Validate schema & dependency graph
+terraform validate
+```
+
+### 2. Deploy Infrastructure
+```bash
+# Review execution plan
+terraform plan
+
+# Apply infrastructure changes
+terraform apply
+```
+
+### 3. Teardown
+```bash
+terraform destroy
+```
+
+See the complete [Terraform Deployment Guide](docs/terraform-deployment-guide.md) for architecture, variable specifications, least-privilege security configurations, and cost estimates under the R0 budget constraint.
+
+---
+
 ## 📖 Architecture & Design
 
 - **System Architecture & Cloud Design:** [docs/architecture.md](docs/architecture.md)
@@ -174,5 +213,6 @@ See [docs/aws-deployment-guide.md](docs/aws-deployment-guide.md) for full step-b
 - **AWS Cloud Deployment Guide:** [docs/aws-deployment-guide.md](docs/aws-deployment-guide.md)
 - **CI/CD Pipeline & Registry Publishing Guide:** [docs/ci-cd.md](docs/ci-cd.md)
 - **Monitoring, Observability & Operational Runbook:** [docs/monitoring-observability.md](docs/monitoring-observability.md)
+- **Terraform Infrastructure as Code Guide:** [docs/terraform-deployment-guide.md](docs/terraform-deployment-guide.md)
 
 
